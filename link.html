@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ja">
+<title>タイピング</title>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <style>
+        /* innerを画面中央に配置するために、外側の要素をposition:relativeにする。*/
+        .outer {
+            position: relative;
+        }
+        /* leftで要素の左側を画面中央に、transformで要素の半分だけ左側に移動して、中央配置にする。*/
+        .inner {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        /* ゲーム開始前の「スペースキーで開始」を表示する要素 */
+        #overlay {
+            position:absolute;
+            left: 50%;
+            top: 50%;
+            transform: translateX(-50%) ;
+            background-color: blanchedalmond;
+            font-size:small;
+            padding: 20px;
+        }
+        /* 要素の消去 */
+        .none {
+            display: none;
+        }
+        /* ゲーム実行中に表示される説明部分の要素 */
+        #message {
+            position: absolute;
+            font-size: large;
+        }
+        /* タイピングする文字の全体（これから打つもの、打ったもの） */
+        #panel {
+            font-size:xx-large;
+        }
+        /* 打ち終わった文字 */
+        #done {
+            background-color:grey;
+        }
+        /* 記録などを表示するヘッダー部分 */
+        #header {
+            font-size:medium;
+            position:absolute;
+            transform: translateX(-10%);
+            width: 600px;
+        }
+        /* 時間表示部分 */
+        #time {
+            font-size: large;
+        }
+    </style>
+</head>
+<body class="outer">
+    <div id="panel" class="inner">
+        <div id="header">
+            残り時間: <span id="time">0</span>
+            自分の記録: <span id="hist"></span>
+        </div>
+
+        <!-- #textにタイピングする文字を入れる。 #done, #typeは、それぞれ打ち終わったもの、これから打つものが入る。 -->
+        <pre id="text"><span id="done"></span><span id="type">int i=0;
+scanf("%d",&i);
+printf("i=%d\n",i);
+int values[5] = {4,6,1,4,2};
+int cnt=0;
+while(cnt<5){
+    if(values[cnt]>i){
+        printf("v=%d\n",values[cnt]);
+    }
+    cnt+=1;
+}</span></pre>
+
+        <div id="overlay">スペースキーで開始</div>
+        <div id="message"></div>
+    </div>
+
+    <script type="text/javascript">
+        // 最初にタイピングする文字を取得しておく。
+        const text = $("#text").text();
+        // タイピングする文字のどこまでを打ったかを記録する変数
+        let text_i = 0;
+        // 残り時間を管理する lm の値を変更すると、初期の残り時間を変更できる。
+        let tm = {
+            id:undefined, // setIntervalのid
+            st:undefined, // タイピングの開始時間
+            lm:150*1000, // タイピングのリミット時間（ミリ秒）
+            tm:()=>(new Date()).getTime()-tm.st, // 経過時間
+            rs:()=>tm.lm - tm.tm(), // 残り時間
+            fm:(t)=>(Number(t)/1000).toFixed(1),
+            clear:()=>{clearInterval(tm.id);},
+        };
+        // タイピングの記録を、履歴として記録する。
+        let data = [];
+        // ゲーム開始前に、+文字、-文字を打つと、初期の残り時間を増やす/減らすことができる。
+        const tm_ctrl = {"+":10*1000,"-":-10*1000};
+
+        // 時間を表示
+        $("#time").text(tm.fm(tm.lm));
+        // 現在のタイピングしている文字（打ち終わったもの、これから打つもの）を表示するラムダ関数
+        const disp = ()=>{
+            $("#done").text(text.slice(0,text_i));
+            $("#type").text(text.slice(text_i));
+        }
+        // キーが押されたときの処理
+        $(window).on("keydown",(e)=>{
+            // #overlayの要素がある場合は、ゲーム開始前と判断する。
+            if($("#overlay").hasClass("none")===false){
+                // ゲーム開始のスペース以外が押された場合は、初期の残り時間を増減するキー以外は無視する。
+                if(e.key !== " "){
+                    tm.lm += e.key in tm_ctrl ? tm_ctrl[e.key] : 0;
+                    $("#time").text(tm.fm(tm.lm));
+                    return;
+                }
+                // #overlayの要素を消去して、時間計測を開始する。
+                $("#overlay").toggleClass("none");
+                tm.st = (new Date()).getTime();
+                tm.id = setInterval(()=>{
+                    $("#time").text(tm.fm(tm.rs()));
+                },100);
+            }
+            // 入力されたキーを、タイピングする文字と一致しているか比較するために、Enterキーの変換等をする。
+            const c = {
+                key:e.key,
+                code:Number(e.key.replace("Enter","10")),
+            };
+            // 入力がタイピングするキーと一致している場合、
+            if(text[text_i]===c.key || text[text_i].charCodeAt()===c.code){
+                // これから打つタイピング文字が、2つ以上連続するスペースである場合は、その先までこれから打つ文字を移動させる。
+                text_i += 1;
+                let a = 0;
+                while(text[text_i]===" " && text[text_i+1]===" "){
+                    text_i += 1;
+                    a = 1;
+                }
+                text_i += a;
+                // 現在のタイピング文字を表示する。
+                disp();
+            }
+            // ゲーム中に表示する説明文を定義する。
+            const msgs = {
+                "10":"Enterを押してください。",
+                "32":"スペースキーを押してください。",
+            };
+            // これから打つ文字によって、説明文を画面に表示する。
+            const n = text.charCodeAt(text_i);
+            $("#message").text(n in msgs ? msgs[n] : "");
+
+            // すべての文字をタイプし終わったとき、
+            if(text.length===text_i){
+                // ゲームをリセットして、時間を履歴に追加する。
+                text_i = 0;
+                disp();
+                $("#overlay").toggleClass("none");
+                data.push(tm.rs());
+                tm.clear();
+                $("#hist").text(data.map(d=>tm.fm(d)).join(","));
+            }
+        });
+    </script>
+</body>
+</html>
